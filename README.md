@@ -1,6 +1,6 @@
 # Music Scraper
 
-一个基于文件名的 MP3 标签刮削工具。
+一个基于文件名的音乐标签刮削工具。
 
 支持从文件名中提取：
 
@@ -237,7 +237,6 @@ python music-scraper.py -u
 
 ## 📌 TODO（可扩展）
 
-- 支持 FLAC / M4A
 - 自动识别多种文件名格式（`01-xxx` / `01.xxx`）
 - 自动拆分作者（`A,B,C`）
 - 从网络刮削元数据（MusicBrainz）
