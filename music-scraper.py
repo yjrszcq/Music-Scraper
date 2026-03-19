@@ -223,7 +223,8 @@ def main():
     parser.add_argument("-u", "--auto", action="store_true",
                         help="自动识别 artist/album/cover（互斥）")
 
-    parser.add_argument("-n", "--dry-run", action="store_true")
+    parser.add_argument("-n", "--dry-run", action="store_true",
+                        help="仅预览，不写入标签")
     parser.add_argument("-v", "--version", action="version",
                         version=f"%(prog)s {VERSION}")
 
