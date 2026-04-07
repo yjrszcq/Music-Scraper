@@ -11,7 +11,7 @@ from mutagen.id3 import APIC, COMM, ID3, ID3NoHeaderError
 from mutagen.flac import FLAC, Picture
 from mutagen.mp4 import MP4, MP4Cover
 
-VERSION = "2.3.0"
+VERSION = "2.4.0"
 
 SUPPORTED_EXTS = [".mp3", ".flac", ".m4a"]
 
@@ -41,6 +41,16 @@ def parse_filename(filename: str):
 def detect_mime_type(path: Path):
     mime, _ = mimetypes.guess_type(str(path))
     return mime or "image/jpeg"
+
+
+def mime_to_ext(mime: str):
+    mapping = {
+        "image/jpeg": ".jpg",
+        "image/jpg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+    }
+    return mapping.get((mime or "").lower(), ".bin")
 
 
 def find_auto_cover(folder: Path):
@@ -95,6 +105,132 @@ def iter_audio_files(folder: Path):
     for f in sorted(folder.rglob("*")):
         if f.is_file() and is_supported_audio(f):
             yield f
+
+
+# ========================
+# 封面提取
+# ========================
+
+def get_mp3_cover(path: Path):
+    try:
+        tags = ID3(path)
+        apics = tags.getall("APIC")
+        if not apics:
+            return None
+        pic = apics[0]
+        return {
+            "data": pic.data,
+            "mime": pic.mime or "image/jpeg",
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def get_flac_cover(path: Path):
+    try:
+        audio = FLAC(path)
+        if not audio.pictures:
+            return None
+        pic = audio.pictures[0]
+        return {
+            "data": pic.data,
+            "mime": pic.mime or "image/jpeg",
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def get_m4a_cover(path: Path):
+    try:
+        audio = MP4(path)
+        covr = audio.get("covr")
+        if not covr:
+            return None
+
+        item = covr[0]
+        data = bytes(item)
+
+        fmt = getattr(item, "imageformat", None)
+        if fmt == MP4Cover.FORMAT_PNG:
+            mime = "image/png"
+        else:
+            mime = "image/jpeg"
+
+        return {
+            "data": data,
+            "mime": mime,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def get_cover_data(path: Path):
+    ext = path.suffix.lower()
+
+    if ext == ".mp3":
+        return get_mp3_cover(path)
+    elif ext == ".flac":
+        return get_flac_cover(path)
+    elif ext == ".m4a":
+        return get_m4a_cover(path)
+    else:
+        return {"error": f"不支持格式: {path.suffix}"}
+
+
+def build_default_cover_output_path(audio_path: Path, mime: str):
+    ext = mime_to_ext(mime)
+    return audio_path.with_name(f"{audio_path.stem}.cover{ext}")
+
+
+def resolve_cover_output_path(audio_path: Path, cover_info: dict, output_arg: str | None, single_file: bool):
+    ext = mime_to_ext(cover_info["mime"])
+
+    if not output_arg:
+        return build_default_cover_output_path(audio_path, cover_info["mime"])
+
+    out = Path(output_arg).resolve()
+
+    if single_file:
+        if out.exists() and out.is_dir():
+            return out / f"{audio_path.stem}.cover{ext}"
+        return out
+
+    # 目录模式：指定路径按目录处理
+    if out.exists() and out.is_file():
+        raise ValueError(f"目录批量提取时，--extract-cover 不能是文件路径: {out}")
+
+    return out / f"{audio_path.stem}.cover{ext}"
+
+
+def extract_cover_from_file(audio_path: Path, output_arg: str | None = None, single_file: bool = True):
+    info = get_cover_data(audio_path)
+
+    if info is None:
+        print(f"[SKIP] {audio_path} -> 没有封面")
+        return
+
+    if "error" in info:
+        print(f"[ERROR] {audio_path} -> {info['error']}")
+        return
+
+    try:
+        out_path = resolve_cover_output_path(audio_path, info, output_arg, single_file)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_bytes(info["data"])
+        print(f"[OK] {audio_path} -> {out_path}")
+    except Exception as e:
+        print(f"[ERROR] {audio_path} -> {e}")
+
+
+def extract_cover_from_folder(folder: Path, output_arg: str | None = None):
+    files = list(iter_audio_files(folder))
+
+    if not files:
+        print(f"[INFO] 目录下未找到支持的音频文件: {folder}")
+        return
+
+    for f in files:
+        extract_cover_from_file(f, output_arg=output_arg, single_file=False)
 
 
 # ========================
@@ -459,6 +595,13 @@ def main():
     )
 
     parser.add_argument(
+        "--extract-cover",
+        nargs="?",
+        const="",
+        help="提取封面：-f 时可指定输出文件；-d 时可指定输出目录；不指定则按默认命名输出"
+    )
+
+    parser.add_argument(
         "-n", "--dry-run", action="store_true",
         help="仅预览，不写入标签"
     )
@@ -468,6 +611,25 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # 提取封面模式
+    if args.extract_cover is not None:
+        if args.file:
+            path = Path(args.file).resolve()
+            ensure_file_exists(path, parser, "音乐文件")
+            if not path.is_file():
+                parser.error(f"不是文件: {path}")
+            if not is_supported_audio(path):
+                parser.error(f"不支持格式: {path}")
+            extract_cover_from_file(path, output_arg=args.extract_cover or None, single_file=True)
+            return
+
+        folder = Path(args.dir or ".").resolve()
+        ensure_file_exists(folder, parser, "目录")
+        if not folder.is_dir():
+            parser.error(f"不是目录: {folder}")
+        extract_cover_from_folder(folder, output_arg=args.extract_cover or None)
+        return
 
     # show 模式
     if args.show:
