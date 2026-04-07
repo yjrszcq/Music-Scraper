@@ -11,7 +11,9 @@ from mutagen.id3 import APIC, COMM, ID3, ID3NoHeaderError
 from mutagen.flac import FLAC, Picture
 from mutagen.mp4 import MP4, MP4Cover
 
-VERSION = "2.2.0"
+VERSION = "2.3.0"
+
+SUPPORTED_EXTS = [".mp3", ".flac", ".m4a"]
 
 FILENAME_PATTERN = re.compile(r"^(\d+)\s+(.+)\.(mp3|flac|m4a)$", re.IGNORECASE)
 
@@ -83,6 +85,16 @@ def normalize_track(track):
     if not s.isdigit():
         raise ValueError(f"track 必须是纯数字，当前为: {track}")
     return str(int(s))
+
+
+def is_supported_audio(path: Path):
+    return path.suffix.lower() in SUPPORTED_EXTS
+
+
+def iter_audio_files(folder: Path):
+    for f in sorted(folder.rglob("*")):
+        if f.is_file() and is_supported_audio(f):
+            yield f
 
 
 # ========================
@@ -265,7 +277,7 @@ def show_flac_tags(path):
             "artist": flatten_value(audio.get("artist")),
             "album": flatten_value(audio.get("album")),
             "comment": flatten_value(audio.get("comment")),
-            "cover": "有" if getattr(audio, "pictures", None) else "无",
+            "cover": "无",
         }
         if getattr(audio, "pictures", None):
             info["cover"] = f"有 ({len(audio.pictures)} 张)"
@@ -301,19 +313,20 @@ def show_m4a_tags(path):
         return {"file": str(path), "error": str(e)}
 
 
-def show_tags(path):
+def read_tags(path):
     ext = path.suffix.lower()
 
     if ext == ".mp3":
-        info = show_mp3_tags(path)
+        return show_mp3_tags(path)
     elif ext == ".flac":
-        info = show_flac_tags(path)
+        return show_flac_tags(path)
     elif ext == ".m4a":
-        info = show_m4a_tags(path)
+        return show_m4a_tags(path)
     else:
-        print(f"[SKIP] 不支持格式: {path}")
-        return
+        return {"file": str(path), "error": f"不支持格式: {path.suffix}"}
 
+
+def print_tag_info(info):
     if "error" in info:
         print(f"[ERROR] {info['file']} -> {info['error']}")
         return
@@ -328,6 +341,22 @@ def show_tags(path):
     print(f"简介/注释: {info.get('comment')}")
     print(f"封面     : {info.get('cover')}")
     print("=" * 60)
+
+
+def show_tags(path):
+    info = read_tags(path)
+    print_tag_info(info)
+
+
+def show_folder_tags(folder: Path):
+    files = list(iter_audio_files(folder))
+
+    if not files:
+        print(f"[INFO] 目录下未找到支持的音频文件: {folder}")
+        return
+
+    for f in files:
+        show_tags(f)
 
 
 # ========================
@@ -360,8 +389,6 @@ def write_tags(path, track, title, artists, album, comment, cover, dry_run):
 def process_file(path, artists, album, comment, cover, dry_run, manual_track=None, manual_title=None):
     parsed = parse_filename(path.name)
 
-    # 单文件模式优先级：
-    # 手动参数 > 文件名解析结果 > None
     if manual_track is not None:
         track = normalize_track(manual_track)
     elif parsed:
@@ -387,7 +414,7 @@ def process_folder(folder, artists, album, comment, cover, dry_run):
     files = list(folder.rglob("*.*"))
 
     for f in files:
-        if f.suffix.lower() not in [".mp3", ".flac", ".m4a"]:
+        if f.suffix.lower() not in SUPPORTED_EXTS:
             continue
 
         parsed = parse_filename(f.name)
@@ -418,7 +445,6 @@ def main():
     parser.add_argument("-c", "--cover", help="封面路径")
     parser.add_argument("-m", "--comment", help="简介 / 注释")
 
-    # 新增：仅单文件使用
     parser.add_argument("-t", "--track", help="手动指定音轨号（仅单文件模式）")
     parser.add_argument("-s", "--title", help="手动指定标题（仅单文件模式）")
 
@@ -429,7 +455,7 @@ def main():
 
     parser.add_argument(
         "--show", action="store_true",
-        help="查看指定音乐文件的 tag（需配合 -f 使用）"
+        help="查看 tag：-f 为单文件，-d 为目录；都不带则默认当前目录"
     )
 
     parser.add_argument(
@@ -443,13 +469,23 @@ def main():
 
     args = parser.parse_args()
 
-    # show 模式只能用于单文件
+    # show 模式
     if args.show:
-        if not args.file:
-            parser.error("--show 需要配合 -f/--file 使用")
-        path = Path(args.file).resolve()
-        ensure_file_exists(path, parser, "音乐文件")
-        show_tags(path)
+        if args.file:
+            path = Path(args.file).resolve()
+            ensure_file_exists(path, parser, "音乐文件")
+            if not path.is_file():
+                parser.error(f"不是文件: {path}")
+            if not is_supported_audio(path):
+                parser.error(f"不支持格式: {path}")
+            show_tags(path)
+            return
+
+        folder = Path(args.dir or ".").resolve()
+        ensure_file_exists(folder, parser, "目录")
+        if not folder.is_dir():
+            parser.error(f"不是目录: {folder}")
+        show_folder_tags(folder)
         return
 
     # track/title 只能在单文件模式使用
