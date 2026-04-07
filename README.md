@@ -466,5 +466,3 @@ python music-scraper.py -f "Ending Final Version.flac" -a "作者A" -l "专辑�
 * 自动拆分作者（`A,B,C`）
 * 从网络刮削元数据（MusicBrainz）
 * 批量查看目录下所有音频文件 tag
-
-```
