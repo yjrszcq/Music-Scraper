@@ -4,7 +4,6 @@
 import argparse
 import mimetypes
 import re
-import sys
 from pathlib import Path
 
 from mutagen.easyid3 import EasyID3
@@ -12,7 +11,7 @@ from mutagen.id3 import APIC, COMM, ID3, ID3NoHeaderError
 from mutagen.flac import FLAC, Picture
 from mutagen.mp4 import MP4, MP4Cover
 
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 
 FILENAME_PATTERN = re.compile(r"^(\d+)\s+(.+)\.(mp3|flac|m4a)$", re.IGNORECASE)
 
@@ -75,6 +74,17 @@ def flatten_value(value):
     return str(value)
 
 
+def normalize_track(track):
+    if track is None:
+        return None
+    s = str(track).strip()
+    if not s:
+        return None
+    if not s.isdigit():
+        raise ValueError(f"track 必须是纯数字，当前为: {track}")
+    return str(int(s))
+
+
 # ========================
 # 写入不同格式
 # ========================
@@ -88,8 +98,10 @@ def write_mp3(path, track, title, artists, album, comment, cover):
             audio.save(path)
             audio = EasyID3(path)
 
-        audio["tracknumber"] = [track]
-        audio["title"] = [title]
+        if track is not None:
+            audio["tracknumber"] = [track]
+        if title is not None:
+            audio["title"] = [title]
 
         if artists:
             audio["artist"] = artists
@@ -134,8 +146,10 @@ def write_flac(path, track, title, artists, album, comment, cover):
     try:
         audio = FLAC(path)
 
-        audio["tracknumber"] = track
-        audio["title"] = title
+        if track is not None:
+            audio["tracknumber"] = track
+        if title is not None:
+            audio["title"] = title
 
         if artists:
             audio["artist"] = artists
@@ -165,8 +179,10 @@ def write_m4a(path, track, title, artists, album, comment, cover):
     try:
         audio = MP4(path)
 
-        audio["trkn"] = [(int(track), 0)]
-        audio["©nam"] = [title]
+        if track is not None:
+            audio["trkn"] = [(int(track), 0)]
+        if title is not None:
+            audio["©nam"] = [title]
 
         if artists:
             audio["©ART"] = artists
@@ -303,14 +319,14 @@ def show_tags(path):
         return
 
     print("=" * 60)
-    print(f"文件    : {info.get('file')}")
-    print(f"格式    : {info.get('format')}")
-    print(f"轨道号  : {info.get('track')}")
-    print(f"标题    : {info.get('title')}")
-    print(f"艺术家  : {info.get('artist')}")
-    print(f"专辑    : {info.get('album')}")
+    print(f"文件     : {info.get('file')}")
+    print(f"格式     : {info.get('format')}")
+    print(f"轨道号   : {info.get('track')}")
+    print(f"标题     : {info.get('title')}")
+    print(f"艺术家   : {info.get('artist')}")
+    print(f"专辑     : {info.get('album')}")
     print(f"简介/注释: {info.get('comment')}")
-    print(f"封面    : {info.get('cover')}")
+    print(f"封面     : {info.get('cover')}")
     print("=" * 60)
 
 
@@ -341,13 +357,29 @@ def write_tags(path, track, title, artists, album, comment, cover, dry_run):
         print(f"[SKIP] 不支持格式: {path}")
 
 
-def process_file(path, artists, album, comment, cover, dry_run):
+def process_file(path, artists, album, comment, cover, dry_run, manual_track=None, manual_title=None):
     parsed = parse_filename(path.name)
-    if not parsed:
-        print(f"[SKIP] {path}")
+
+    # 单文件模式优先级：
+    # 手动参数 > 文件名解析结果 > None
+    if manual_track is not None:
+        track = normalize_track(manual_track)
+    elif parsed:
+        track = parsed[0]
+    else:
+        track = None
+
+    if manual_title is not None:
+        title = manual_title.strip()
+    elif parsed:
+        title = parsed[1]
+    else:
+        title = None
+
+    if not any([track is not None, title is not None, artists, album, comment is not None, cover]):
+        print(f"[SKIP] {path} -> 没有可写入的标签")
         return
 
-    track, title = parsed
     write_tags(path, track, title, artists, album, comment, cover, dry_run)
 
 
@@ -357,7 +389,14 @@ def process_folder(folder, artists, album, comment, cover, dry_run):
     for f in files:
         if f.suffix.lower() not in [".mp3", ".flac", ".m4a"]:
             continue
-        process_file(f, artists, album, comment, cover, dry_run)
+
+        parsed = parse_filename(f.name)
+        if not parsed:
+            print(f"[SKIP] {f}")
+            continue
+
+        track, title = parsed
+        write_tags(f, track, title, artists, album, comment, cover, dry_run)
 
 
 # ========================
@@ -379,16 +418,28 @@ def main():
     parser.add_argument("-c", "--cover", help="封面路径")
     parser.add_argument("-m", "--comment", help="简介 / 注释")
 
-    parser.add_argument("-u", "--auto", action="store_true",
-                        help="自动识别 artist/album/cover（与 -a/-l/-c 互斥）")
+    # 新增：仅单文件使用
+    parser.add_argument("-t", "--track", help="手动指定音轨号（仅单文件模式）")
+    parser.add_argument("-s", "--title", help="手动指定标题（仅单文件模式）")
 
-    parser.add_argument("--show", action="store_true",
-                        help="查看指定音乐文件的 tag（需配合 -f 使用）")
+    parser.add_argument(
+        "-u", "--auto", action="store_true",
+        help="自动识别 artist/album/cover（与 -a/-l/-c 互斥）"
+    )
 
-    parser.add_argument("-n", "--dry-run", action="store_true",
-                        help="仅预览，不写入标签")
-    parser.add_argument("-v", "--version", action="version",
-                        version=f"%(prog)s {VERSION}")
+    parser.add_argument(
+        "--show", action="store_true",
+        help="查看指定音乐文件的 tag（需配合 -f 使用）"
+    )
+
+    parser.add_argument(
+        "-n", "--dry-run", action="store_true",
+        help="仅预览，不写入标签"
+    )
+    parser.add_argument(
+        "-v", "--version", action="version",
+        version=f"%(prog)s {VERSION}"
+    )
 
     args = parser.parse_args()
 
@@ -401,10 +452,13 @@ def main():
         show_tags(path)
         return
 
-    # 互斥校验
+    # track/title 只能在单文件模式使用
+    if (args.track is not None or args.title is not None) and not args.file:
+        parser.error("--track/--title 仅能配合 -f/--file 使用")
+
+    # auto 互斥
     if args.auto and (args.artist or args.album or args.cover):
         parser.error("-u 与 -a/-l/-c 互斥")
-    # comment 不与 auto 互斥，因为它无法自动推断，手动传入很合理
 
     cover = Path(args.cover).resolve() if args.cover else None
     if cover:
@@ -421,7 +475,16 @@ def main():
             artists = args.artist
             album = args.album
 
-        process_file(path, artists, album, args.comment, cover, args.dry_run)
+        process_file(
+            path=path,
+            artists=artists,
+            album=album,
+            comment=args.comment,
+            cover=cover,
+            dry_run=args.dry_run,
+            manual_track=args.track,
+            manual_title=args.title,
+        )
         return
 
     # 目录
