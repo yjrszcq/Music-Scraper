@@ -19,8 +19,8 @@
 
 - 多作者
 - 专辑名
-- 专辑封面
-- 简介 / 注释
+- 专辑封面写入
+- 简介 / 注释写入
 - 自动识别（目录推断）
 - 单文件 / 批量处理
 - dry-run 预览模式
@@ -28,6 +28,7 @@
 - 批量查看目录下所有音频文件 tag
 - 单文件手动指定 `track`
 - 单文件手动指定 `title`
+- 提取音乐内嵌封面
 
 ---
 
@@ -91,11 +92,14 @@ python music-scraper.py
   * 手动指定 `title`
   * 或只写入其他标签（如 `artist / album / comment / cover`）
 
-### 查看模式说明
+### 查看 / 提取封面模式说明
 
-`--show` 模式下，**不要求文件名匹配**。
+在以下模式下，**不要求文件名匹配**：
 
-只要文件后缀是支持的音频格式，就可以读取并显示 tag。
+* `--show`
+* `--extract-cover`
+
+只要文件后缀是支持的音频格式，就可以读取标签或提取封面。
 
 ---
 
@@ -107,15 +111,11 @@ python music-scraper.py
 python music-scraper.py
 ```
 
----
-
 ### 📁 指定目录
 
 ```bash
 python music-scraper.py -d ./music
 ```
-
----
 
 ### 🎵 单个文件
 
@@ -138,17 +138,13 @@ python music-scraper.py -f "82 龍族の記憶.mp3"
 python music-scraper.py -a "作者A" -a "作者B"
 ```
 
----
-
 ### 💿 专辑
 
 ```bash
 python music-scraper.py -l "专辑名"
 ```
 
----
-
-### 🖼 封面
+### 🖼 封面写入
 
 ```bash
 python music-scraper.py -c cover.jpg
@@ -159,8 +155,6 @@ python music-scraper.py -c cover.jpg
 * `jpg` / `jpeg`
 * `png`
 * `webp`
-
----
 
 ### 📝 简介 / 注释
 
@@ -363,6 +357,66 @@ python music-scraper.py --show
 
 ---
 
+## 🖼 提取音乐封面
+
+### 提取单个文件封面
+
+```bash
+python music-scraper.py -f "01 Opening.flac" --extract-cover
+```
+
+默认输出到音频同目录，命名为：
+
+```text
+原文件名.cover.扩展名
+```
+
+例如：
+
+```text
+01 Opening.flac -> 01 Opening.cover.jpg
+```
+
+### 提取单个文件封面到指定路径
+
+```bash
+python music-scraper.py -f "01 Opening.flac" --extract-cover "./covers/opening.jpg"
+```
+
+### 批量提取指定目录下所有音频文件封面
+
+```bash
+python music-scraper.py -d ./music --extract-cover
+```
+
+### 批量提取当前目录下所有音频文件封面
+
+```bash
+python music-scraper.py --extract-cover
+```
+
+### 批量提取到指定目录
+
+```bash
+python music-scraper.py -d ./music --extract-cover ./covers
+```
+
+说明：
+
+* `--extract-cover` 模式下不要求文件名匹配规则
+* 只要后缀是支持的音频文件即可：
+
+  * `.mp3`
+  * `.flac`
+  * `.m4a`
+* 若音频没有内嵌封面，会跳过
+* `-f` 时可指定输出文件路径
+* `-d` 时可指定输出目录
+* 不带 `-d/-f` 时默认处理当前目录
+* 目录模式会递归扫描子目录中的音频文件
+
+---
+
 ## ❗ 参数互斥说明
 
 ### `--auto / -u` 与以下参数不能同时使用：
@@ -407,9 +461,11 @@ python music-scraper.py -v
 * 目录模式下，文件名必须符合规则，否则跳过
 * 单文件模式下，文件名不符合规则也不会自动跳过
 * `--show` 模式下完全不检查文件名格式
-* 封面会覆盖原有封面
+* `--extract-cover` 模式下完全不检查文件名格式
+* 封面写入会覆盖原有封面
 * MP3 的注释会写入 `COMM`
 * 不同播放器对“注释 / 简介”字段的显示方式可能不同
+* 提取封面时，若文件本身没有内嵌封面，会跳过
 * 建议先使用 `-n` 预览
 
 ---
@@ -490,6 +546,12 @@ python music-scraper.py -f "Ending Final Version.flac" -a "作者A" -l "专辑�
 
 ```bash
 python music-scraper.py --show
+```
+
+### 示例 5：直接提取当前目录所有音频封面
+
+```bash
+python music-scraper.py --extract-cover
 ```
 
 ---
