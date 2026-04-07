@@ -25,6 +25,7 @@
 - 单文件 / 批量处理
 - dry-run 预览模式
 - 查看指定音乐文件 tag
+- 批量查看目录下所有音频文件 tag
 - 单文件手动指定 `track`
 - 单文件手动指定 `title`
 
@@ -89,6 +90,12 @@ python music-scraper.py
   * 手动指定 `track`
   * 手动指定 `title`
   * 或只写入其他标签（如 `artist / album / comment / cover`）
+
+### 查看模式说明
+
+`--show` 模式下，**不要求文件名匹配**。
+
+只要文件后缀是支持的音频格式，就可以读取并显示 tag。
 
 ---
 
@@ -306,13 +313,38 @@ python music-scraper.py -u -n
 
 ---
 
-## 🏷 查看指定音乐文件的 tag
+## 🏷 查看 tag
 
-可以查看某个音乐文件当前已有的标签信息：
+### 查看单个文件
 
 ```bash
 python music-scraper.py -f "01 Opening.flac" --show
 ```
+
+### 批量查看指定目录下所有音频文件
+
+```bash
+python music-scraper.py -d ./music --show
+```
+
+### 批量查看当前目录下所有音频文件
+
+```bash
+python music-scraper.py --show
+```
+
+说明：
+
+* `--show` 模式下不要求文件名匹配规则
+* 只要后缀是支持的音频文件即可：
+
+  * `.mp3`
+  * `.flac`
+  * `.m4a`
+* `-f` 时查看单文件
+* `-d` 时查看目录
+* 不带 `-d/-f` 时默认查看当前目录
+* 目录查看会递归扫描子目录中的音频文件
 
 示例输出：
 
@@ -328,11 +360,6 @@ python music-scraper.py -f "01 Opening.flac" --show
 封面     : 有 (1 张)
 ============================================================
 ```
-
-说明：
-
-* `--show` 需要配合 `-f / --file` 使用
-* 当前仅支持查看单个文件，不支持整个目录批量显示
 
 ---
 
@@ -379,6 +406,7 @@ python music-scraper.py -v
 * 支持 `.mp3` / `.flac` / `.m4a`
 * 目录模式下，文件名必须符合规则，否则跳过
 * 单文件模式下，文件名不符合规则也不会自动跳过
+* `--show` 模式下完全不检查文件名格式
 * 封面会覆盖原有封面
 * MP3 的注释会写入 `COMM`
 * 不同播放器对“注释 / 简介”字段的显示方式可能不同
@@ -458,6 +486,12 @@ python music-scraper.py -f "Ending Final Version.flac" -a "作者A" -l "专辑�
 * `album = 专辑名`
 * `comment = 结尾曲`
 
+### 示例 4：直接查看当前目录所有音频标签
+
+```bash
+python music-scraper.py --show
+```
+
 ---
 
 ## 📌 TODO（可扩展）
@@ -465,4 +499,4 @@ python music-scraper.py -f "Ending Final Version.flac" -a "作者A" -l "专辑�
 * 自动识别多种文件名格式（`01-xxx` / `01.xxx` / `01_xxx`）
 * 自动拆分作者（`A,B,C`）
 * 从网络刮削元数据（MusicBrainz）
-* 批量查看目录下所有音频文件 tag
+* 导出 tag 信息为文本或 CSV
