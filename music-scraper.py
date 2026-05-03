@@ -11,7 +11,7 @@ from mutagen.id3 import APIC, COMM, ID3, ID3NoHeaderError
 from mutagen.flac import FLAC, Picture
 from mutagen.mp4 import MP4, MP4Cover
 
-VERSION = "2.4.0"
+VERSION = "2.5.0"
 
 SUPPORTED_EXTS = [".mp3", ".flac", ".m4a"]
 
@@ -67,7 +67,9 @@ def infer_auto_tags(folder: Path):
     cover = find_auto_cover(folder)
 
     artists = [artist] if artist else None
-    return artists, album, cover
+    album_artist = artist
+
+    return artists, album_artist, album, cover
 
 
 def ensure_file_exists(path: Path, parser=None, name="文件"):
@@ -95,6 +97,17 @@ def normalize_track(track):
     if not s.isdigit():
         raise ValueError(f"track 必须是纯数字，当前为: {track}")
     return str(int(s))
+
+
+def normalize_year(year):
+    if year is None:
+        return None
+    s = str(year).strip()
+    if not s:
+        return None
+    if not re.fullmatch(r"\d{4}", s):
+        raise ValueError(f"年份必须是 4 位数字，当前为: {year}")
+    return s
 
 
 def is_supported_audio(path: Path):
@@ -237,7 +250,7 @@ def extract_cover_from_folder(folder: Path, output_arg: str | None = None):
 # 写入不同格式
 # ========================
 
-def write_mp3(path, track, title, artists, album, comment, cover):
+def write_mp3(path, track, title, artists, album_artist, album, year, comment, cover):
     try:
         try:
             audio = EasyID3(path)
@@ -253,8 +266,12 @@ def write_mp3(path, track, title, artists, album, comment, cover):
 
         if artists:
             audio["artist"] = artists
+        if album_artist:
+            audio["albumartist"] = [album_artist]
         if album:
             audio["album"] = [album]
+        if year:
+            audio["date"] = [year]
 
         audio.save()
 
@@ -290,7 +307,7 @@ def write_mp3(path, track, title, artists, album, comment, cover):
         print(f"[ERROR][MP3] {path} -> {e}")
 
 
-def write_flac(path, track, title, artists, album, comment, cover):
+def write_flac(path, track, title, artists, album_artist, album, year, comment, cover):
     try:
         audio = FLAC(path)
 
@@ -301,8 +318,12 @@ def write_flac(path, track, title, artists, album, comment, cover):
 
         if artists:
             audio["artist"] = artists
+        if album_artist:
+            audio["albumartist"] = album_artist
         if album:
             audio["album"] = album
+        if year:
+            audio["date"] = year
         if comment is not None:
             audio["comment"] = comment
 
@@ -323,7 +344,7 @@ def write_flac(path, track, title, artists, album, comment, cover):
         print(f"[ERROR][FLAC] {path} -> {e}")
 
 
-def write_m4a(path, track, title, artists, album, comment, cover):
+def write_m4a(path, track, title, artists, album_artist, album, year, comment, cover):
     try:
         audio = MP4(path)
 
@@ -334,8 +355,12 @@ def write_m4a(path, track, title, artists, album, comment, cover):
 
         if artists:
             audio["©ART"] = artists
+        if album_artist:
+            audio["aART"] = [album_artist]
         if album:
             audio["©alb"] = [album]
+        if year:
+            audio["©day"] = [year]
         if comment is not None:
             audio["©cmt"] = [comment]
 
@@ -367,7 +392,9 @@ def show_mp3_tags(path):
             "track": None,
             "title": None,
             "artist": None,
+            "album_artist": None,
             "album": None,
+            "year": None,
             "comment": None,
             "cover": "无",
         }
@@ -377,7 +404,9 @@ def show_mp3_tags(path):
             info["track"] = flatten_value(audio.get("tracknumber"))
             info["title"] = flatten_value(audio.get("title"))
             info["artist"] = flatten_value(audio.get("artist"))
+            info["album_artist"] = flatten_value(audio.get("albumartist"))
             info["album"] = flatten_value(audio.get("album"))
+            info["year"] = flatten_value(audio.get("date"))
         except Exception:
             pass
 
@@ -411,7 +440,9 @@ def show_flac_tags(path):
             "track": flatten_value(audio.get("tracknumber")),
             "title": flatten_value(audio.get("title")),
             "artist": flatten_value(audio.get("artist")),
+            "album_artist": flatten_value(audio.get("albumartist")),
             "album": flatten_value(audio.get("album")),
+            "year": flatten_value(audio.get("date")),
             "comment": flatten_value(audio.get("comment")),
             "cover": "无",
         }
@@ -431,7 +462,9 @@ def show_m4a_tags(path):
             "track": None,
             "title": flatten_value(audio.get("©nam")),
             "artist": flatten_value(audio.get("©ART")),
+            "album_artist": flatten_value(audio.get("aART")),
             "album": flatten_value(audio.get("©alb")),
+            "year": flatten_value(audio.get("©day")),
             "comment": flatten_value(audio.get("©cmt")),
             "cover": "无",
         }
@@ -468,14 +501,16 @@ def print_tag_info(info):
         return
 
     print("=" * 60)
-    print(f"文件     : {info.get('file')}")
-    print(f"格式     : {info.get('format')}")
-    print(f"轨道号   : {info.get('track')}")
-    print(f"标题     : {info.get('title')}")
-    print(f"艺术家   : {info.get('artist')}")
-    print(f"专辑     : {info.get('album')}")
-    print(f"简介/注释: {info.get('comment')}")
-    print(f"封面     : {info.get('cover')}")
+    print(f"文件       : {info.get('file')}")
+    print(f"格式       : {info.get('format')}")
+    print(f"轨道号     : {info.get('track')}")
+    print(f"标题       : {info.get('title')}")
+    print(f"艺术家     : {info.get('artist')}")
+    print(f"专辑艺术家 : {info.get('album_artist')}")
+    print(f"专辑       : {info.get('album')}")
+    print(f"年份       : {info.get('year')}")
+    print(f"简介/注释  : {info.get('comment')}")
+    print(f"封面       : {info.get('cover')}")
     print("=" * 60)
 
 
@@ -499,30 +534,45 @@ def show_folder_tags(folder: Path):
 # 分发
 # ========================
 
-def write_tags(path, track, title, artists, album, comment, cover, dry_run):
+def write_tags(path, track, title, artists, album_artist, album, year, comment, cover, dry_run):
+    year = normalize_year(year)
+
     if dry_run:
         print(f"[DRY RUN] {path}")
-        print(f"  track   = {track}")
-        print(f"  title   = {title}")
-        print(f"  artist  = {artists}")
-        print(f"  album   = {album}")
-        print(f"  comment = {comment}")
-        print(f"  cover   = {cover}")
+        print(f"  track        = {track}")
+        print(f"  title        = {title}")
+        print(f"  artist       = {artists}")
+        print(f"  album_artist = {album_artist}")
+        print(f"  album        = {album}")
+        print(f"  year         = {year}")
+        print(f"  comment      = {comment}")
+        print(f"  cover        = {cover}")
         return
 
     ext = path.suffix.lower()
 
     if ext == ".mp3":
-        write_mp3(path, track, title, artists, album, comment, cover)
+        write_mp3(path, track, title, artists, album_artist, album, year, comment, cover)
     elif ext == ".flac":
-        write_flac(path, track, title, artists, album, comment, cover)
+        write_flac(path, track, title, artists, album_artist, album, year, comment, cover)
     elif ext == ".m4a":
-        write_m4a(path, track, title, artists, album, comment, cover)
+        write_m4a(path, track, title, artists, album_artist, album, year, comment, cover)
     else:
         print(f"[SKIP] 不支持格式: {path}")
 
 
-def process_file(path, artists, album, comment, cover, dry_run, manual_track=None, manual_title=None):
+def process_file(
+    path,
+    artists,
+    album_artist,
+    album,
+    year,
+    comment,
+    cover,
+    dry_run,
+    manual_track=None,
+    manual_title=None,
+):
     parsed = parse_filename(path.name)
 
     if manual_track is not None:
@@ -539,14 +589,23 @@ def process_file(path, artists, album, comment, cover, dry_run, manual_track=Non
     else:
         title = None
 
-    if not any([track is not None, title is not None, artists, album, comment is not None, cover]):
+    if not any([
+        track is not None,
+        title is not None,
+        artists,
+        album_artist,
+        album,
+        year,
+        comment is not None,
+        cover
+    ]):
         print(f"[SKIP] {path} -> 没有可写入的标签")
         return
 
-    write_tags(path, track, title, artists, album, comment, cover, dry_run)
+    write_tags(path, track, title, artists, album_artist, album, year, comment, cover, dry_run)
 
 
-def process_folder(folder, artists, album, comment, cover, dry_run):
+def process_folder(folder, artists, album_artist, album, year, comment, cover, dry_run):
     files = list(folder.rglob("*.*"))
 
     for f in files:
@@ -559,7 +618,7 @@ def process_folder(folder, artists, album, comment, cover, dry_run):
             continue
 
         track, title = parsed
-        write_tags(f, track, title, artists, album, comment, cover, dry_run)
+        write_tags(f, track, title, artists, album_artist, album, year, comment, cover, dry_run)
 
 
 # ========================
@@ -576,8 +635,10 @@ def main():
     g.add_argument("-d", "--dir", help="目录")
     g.add_argument("-f", "--file", help="单文件")
 
-    parser.add_argument("-a", "--artist", action="append", help="作者（可多个）")
+    parser.add_argument("-a", "--artist", action="append", help="作者 / 艺术家（可多个）")
+    parser.add_argument("-A", "--album-artist", help="专辑艺术家")
     parser.add_argument("-l", "--album", help="专辑")
+    parser.add_argument("-y", "--year", help="年份，例如 2024")
     parser.add_argument("-c", "--cover", help="封面路径")
     parser.add_argument("-m", "--comment", help="简介 / 注释")
 
@@ -586,7 +647,7 @@ def main():
 
     parser.add_argument(
         "-u", "--auto", action="store_true",
-        help="自动识别 artist/album/cover（与 -a/-l/-c 互斥）"
+        help="自动识别 artist/album_artist/album/cover（与 -a/-A/-l/-c 互斥）"
     )
 
     parser.add_argument(
@@ -655,12 +716,17 @@ def main():
         parser.error("--track/--title 仅能配合 -f/--file 使用")
 
     # auto 互斥
-    if args.auto and (args.artist or args.album or args.cover):
-        parser.error("-u 与 -a/-l/-c 互斥")
+    if args.auto and (args.artist or args.album_artist or args.album or args.cover):
+        parser.error("-u 与 -a/-A/-l/-c 互斥")
 
     cover = Path(args.cover).resolve() if args.cover else None
     if cover:
         ensure_file_exists(cover, parser, "封面文件")
+
+    try:
+        year = normalize_year(args.year)
+    except ValueError as e:
+        parser.error(str(e))
 
     # 单文件
     if args.file:
@@ -668,15 +734,18 @@ def main():
         ensure_file_exists(path, parser, "音乐文件")
 
         if args.auto:
-            artists, album, cover = infer_auto_tags(path.parent)
+            artists, album_artist, album, cover = infer_auto_tags(path.parent)
         else:
             artists = args.artist
+            album_artist = args.album_artist
             album = args.album
 
         process_file(
             path=path,
             artists=artists,
+            album_artist=album_artist,
             album=album,
+            year=year,
             comment=args.comment,
             cover=cover,
             dry_run=args.dry_run,
@@ -690,12 +759,22 @@ def main():
     ensure_file_exists(folder, parser, "目录")
 
     if args.auto:
-        artists, album, cover = infer_auto_tags(folder)
+        artists, album_artist, album, cover = infer_auto_tags(folder)
     else:
         artists = args.artist
+        album_artist = args.album_artist
         album = args.album
 
-    process_folder(folder, artists, album, args.comment, cover, args.dry_run)
+    process_folder(
+        folder=folder,
+        artists=artists,
+        album_artist=album_artist,
+        album=album,
+        year=year,
+        comment=args.comment,
+        cover=cover,
+        dry_run=args.dry_run,
+    )
 
 
 if __name__ == "__main__":
