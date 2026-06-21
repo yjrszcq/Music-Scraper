@@ -4,6 +4,7 @@
 import argparse
 import mimetypes
 import re
+import sys
 from pathlib import Path
 
 from mutagen.easyid3 import EasyID3
@@ -11,7 +12,7 @@ from mutagen.id3 import APIC, COMM, ID3, ID3NoHeaderError
 from mutagen.flac import FLAC, Picture
 from mutagen.mp4 import MP4, MP4Cover
 
-VERSION = "2.5.0"
+VERSION = "2.6.0"
 
 SUPPORTED_EXTS = [".mp3", ".flac", ".m4a"]
 
@@ -570,10 +571,11 @@ def process_file(
     comment,
     cover,
     dry_run,
+    filename_mode=None,
     manual_track=None,
     manual_title=None,
 ):
-    parsed = parse_filename(path.name)
+    parsed = parse_filename(path.name) if filename_mode == "parse" else None
 
     if manual_track is not None:
         track = normalize_track(manual_track)
@@ -584,6 +586,8 @@ def process_file(
 
     if manual_title is not None:
         title = manual_title.strip()
+    elif filename_mode == "title":
+        title = path.stem
     elif parsed:
         title = parsed[1]
     else:
@@ -605,27 +609,31 @@ def process_file(
     write_tags(path, track, title, artists, album_artist, album, year, comment, cover, dry_run)
 
 
-def process_folder(folder, artists, album_artist, album, year, comment, cover, dry_run):
+def process_folder(folder, artists, album_artist, album, year, comment, cover, dry_run, filename_mode):
     files = list(folder.rglob("*.*"))
 
     for f in files:
         if f.suffix.lower() not in SUPPORTED_EXTS:
             continue
 
-        parsed = parse_filename(f.name)
-        if not parsed:
-            print(f"[SKIP] {f}")
-            continue
-
-        track, title = parsed
-        write_tags(f, track, title, artists, album_artist, album, year, comment, cover, dry_run)
+        process_file(
+            path=f,
+            artists=artists,
+            album_artist=album_artist,
+            album=album,
+            year=year,
+            comment=comment,
+            cover=cover,
+            dry_run=dry_run,
+            filename_mode=filename_mode,
+        )
 
 
 # ========================
 # CLI
 # ========================
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(
         description="音乐标签刮削工具（MP3 / FLAC / M4A）",
         formatter_class=argparse.RawTextHelpFormatter
@@ -644,6 +652,16 @@ def main():
 
     parser.add_argument("-t", "--track", help="手动指定音轨号（仅单文件模式）")
     parser.add_argument("-s", "--title", help="手动指定标题（仅单文件模式）")
+
+    filename_group = parser.add_mutually_exclusive_group()
+    filename_group.add_argument(
+        "-p", "--parse-filename", action="store_true",
+        help="按“01 标题.mp3”格式从文件名提取 track/title"
+    )
+    filename_group.add_argument(
+        "-N", "--name-as-title", action="store_true",
+        help="将不含后缀的完整文件名作为 title"
+    )
 
     parser.add_argument(
         "-u", "--auto", action="store_true",
@@ -671,7 +689,19 @@ def main():
         version=f"%(prog)s {VERSION}"
     )
 
-    args = parser.parse_args()
+    argv = sys.argv[1:] if argv is None else argv
+    if not argv:
+        parser.print_help()
+        return
+
+    args = parser.parse_args(argv)
+
+    if args.parse_filename:
+        filename_mode = "parse"
+    elif args.name_as_title:
+        filename_mode = "title"
+    else:
+        filename_mode = None
 
     # 提取封面模式
     if args.extract_cover is not None:
@@ -749,6 +779,7 @@ def main():
             comment=args.comment,
             cover=cover,
             dry_run=args.dry_run,
+            filename_mode=filename_mode,
             manual_track=args.track,
             manual_title=args.title,
         )
@@ -774,6 +805,7 @@ def main():
         comment=args.comment,
         cover=cover,
         dry_run=args.dry_run,
+        filename_mode=filename_mode,
     )
 
 
