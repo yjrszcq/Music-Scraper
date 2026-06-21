@@ -12,7 +12,7 @@ from mutagen.id3 import APIC, COMM, ID3, ID3NoHeaderError
 from mutagen.flac import FLAC, Picture
 from mutagen.mp4 import MP4, MP4Cover
 
-VERSION = "2.7.0"
+VERSION = "3.0.0"
 
 SUPPORTED_EXTS = [".mp3", ".flac", ".m4a"]
 
@@ -645,30 +645,30 @@ def main(argv=None):
 
     parser.add_argument("-a", "--artist", action="append", help="作者 / 艺术家（可多个）")
     parser.add_argument("-A", "--album-artist", help="专辑艺术家")
+    parser.add_argument("-b", "--album", help="专辑")
     parser.add_argument("-c", "--cover", help="封面路径")
+    parser.add_argument("-C", "--comment", help="简介 / 注释")
     path_group.add_argument("-d", "--dir", help="目录")
+    parser.add_argument("-D", "--dry-run", action="store_true", help="仅预览，不写入标签")
     path_group.add_argument("-f", "--file", help="单文件")
     parser.add_argument("-h", "--help", action="help", help="显示帮助信息并退出")
-    parser.add_argument("-l", "--album", help="专辑")
-    parser.add_argument("-m", "--comment", help="简介 / 注释")
-    parser.add_argument("-n", "--dry-run", action="store_true", help="仅预览，不写入标签")
     filename_group.add_argument(
-        "-N", "--name-as-title", action="store_true",
+        "-n", "--name-as-title", action="store_true",
         help="将不含后缀的完整文件名作为 title"
     )
     filename_group.add_argument(
         "-p", "--parse-filename", action="store_true",
         help="按“01 标题.mp3”格式从文件名提取 track/title"
     )
-    parser.add_argument("-s", "--title", help="手动指定标题（仅单文件模式）")
     parser.add_argument(
-        "-S", "--show", action="store_true",
+        "-s", "--show", action="store_true",
         help="查看 tag：-f 为单文件，-d 为目录；都不带则默认当前目录"
     )
-    parser.add_argument("-t", "--track", help="手动指定音轨号（仅单文件模式）")
+    parser.add_argument("-t", "--title", help="手动指定标题（仅单文件模式）")
+    parser.add_argument("-T", "--track", help="手动指定音轨号（仅单文件模式）")
     parser.add_argument(
         "-u", "--auto", action="store_true",
-        help="自动识别 artist/album_artist/album/cover（与 -a/-A/-l/-c 互斥）"
+        help="自动识别 artist/album_artist/album/cover（与 -a/-A/-b/-c 互斥）"
     )
     parser.add_argument(
         "-v", "--version", action="version",
@@ -738,7 +738,7 @@ def main(argv=None):
 
     # auto 互斥
     if args.auto and (args.artist or args.album_artist or args.album or args.cover):
-        parser.error("-u 与 -a/-A/-l/-c 互斥")
+        parser.error("-u 与 -a/-A/-b/-c 互斥")
 
     cover = Path(args.cover).resolve() if args.cover else None
     if cover:
