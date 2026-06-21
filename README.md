@@ -8,7 +8,7 @@
 
 例如：
 
-`82 龍族の記憶.mp3`
+`02 第二首.mp3`
 
 并写入：
 
@@ -82,10 +82,10 @@ python music-scraper.py -h
 例如：
 
 ```text
-01 Opening.mp3
-82 龍族の記憶.mp3
-03 Ending.flac
-12 Insert Song.m4a
+01 第一首.mp3
+02 第二首.mp3
+03 第三首.flac
+04 第四首.m4a
 ```
 
 匹配成功后会自动提取：
@@ -106,16 +106,16 @@ python music-scraper.py -h
 音乐文件名去掉最后的扩展名后，会完整写入 `title`：
 
 ```text
-精灵森林 III 荒林采药行.mp3
--> title = 精灵森林 III 荒林采药行
+示例歌曲.mp3
+-> title = 示例歌曲
 ```
 
 此策略不会生成 `tracknumber`。
 
-例如，处理前述“凯尔特音乐”目录可使用：
+例如，处理当前目录可使用：
 
 ```bash
-python music-scraper.py -a "MIA秘境旋律" -l "凯尔特音乐" -d . -N
+python music-scraper.py -a "示例艺术家" -l "示例专辑" -d . -N
 ```
 
 ### 不选择文件名策略
@@ -123,7 +123,7 @@ python music-scraper.py -a "MIA秘境旋律" -l "凯尔特音乐" -d . -N
 可以只写入明确提供的其他标签。例如：
 
 ```bash
-python music-scraper.py -d ./music -a "作者A" -l "专辑名"
+python music-scraper.py -d ./music -a "示例艺术家" -l "示例专辑"
 ```
 
 这会递归处理目录中的音频，但保持原有 `track/title` 不变。
@@ -132,8 +132,8 @@ python music-scraper.py -d ./music -a "作者A" -l "专辑名"
 
 在以下模式下，**不要求文件名匹配**：
 
-- `--show`
-- `--extract-cover`
+- `-S / --show`
+- `-x / --extract-cover`
 
 只要文件后缀是支持的音频格式，就可以读取标签或提取封面。
 
@@ -170,7 +170,7 @@ python music-scraper.py -d ./music -p
 ### 🎵 单个文件
 
 ```bash
-python music-scraper.py -f "82 龍族の記憶.mp3" -p
+python music-scraper.py -f "02 第二首.mp3" -p
 ```
 
 如果文件名可解析，则自动写入：
@@ -185,7 +185,7 @@ python music-scraper.py -f "82 龍族の記憶.mp3" -p
 ### 👤 多作者 / 艺术家
 
 ```bash
-python music-scraper.py -a "作者A" -a "作者B"
+python music-scraper.py -a "艺术家一" -a "艺术家二"
 ```
 
 对应参数：
@@ -197,7 +197,7 @@ python music-scraper.py -a "作者A" -a "作者B"
 ### 👥 专辑艺术家
 
 ```bash
-python music-scraper.py -A "专辑艺术家"
+python music-scraper.py -A "示例专辑艺术家"
 ```
 
 对应参数：
@@ -209,7 +209,7 @@ python music-scraper.py -A "专辑艺术家"
 ### 💿 专辑
 
 ```bash
-python music-scraper.py -l "专辑名"
+python music-scraper.py -l "示例专辑"
 ```
 
 对应参数：
@@ -259,7 +259,7 @@ python music-scraper.py -m "这是一段歌曲简介"
 可与其他参数组合使用：
 
 ```bash
-python music-scraper.py -f "01 Opening.flac" -a "作者A" -A "专辑艺术家" -l "专辑名" -y 2024 -m "这是一首开场曲"
+python music-scraper.py -f "01 第一首.flac" -a "示例艺术家" -A "示例专辑艺术家" -l "示例专辑" -y 2024 -m "示例注释"
 ```
 
 不同音频格式中，“简介 / 注释”对应的标签字段不同：
@@ -297,18 +297,18 @@ python music-scraper.py -f "01 Opening.flac" -a "作者A" -A "专辑艺术家" -
 ### 文件名可匹配时
 
 ```bash
-python music-scraper.py -f "01 Opening.flac" -p
+python music-scraper.py -f "01 第一首.flac" -p
 ```
 
 会自动提取：
 
 - `track = 1`
-- `title = Opening`
+- `title = 第一首`
 
 ### 文件名不可匹配时，手动指定
 
 ```bash
-python music-scraper.py -f "Opening Final Ver.flac" -t 1 -s "Opening"
+python music-scraper.py -f "未编号歌曲.flac" -t 1 -s "第一首"
 ```
 
 这时不会跳过，而是使用你手动指定的值。
@@ -316,7 +316,7 @@ python music-scraper.py -f "Opening Final Ver.flac" -t 1 -s "Opening"
 ### 文件名不可匹配，但只写其他标签
 
 ```bash
-python music-scraper.py -f "Opening Final Ver.flac" -a "作者A" -A "专辑艺术家" -l "专辑名" -y 2024 -m "简介"
+python music-scraper.py -f "未编号歌曲.flac" -a "示例艺术家" -A "示例专辑艺术家" -l "示例专辑" -y 2024 -m "示例注释"
 ```
 
 这时也不会跳过，会正常写入：
@@ -334,13 +334,13 @@ python music-scraper.py -f "Opening Final Ver.flac" -a "作者A" -A "专辑艺�
 ## 🔗 组合使用
 
 ```bash
-python music-scraper.py -d ./music -N -a "A" -a "B" -A "专辑艺术家" -l "专辑名" -y 2024 -c cover.jpg -m "整张专辑统一简介"
+python music-scraper.py -d ./music -N -a "艺术家一" -a "艺术家二" -A "示例专辑艺术家" -l "示例专辑" -y 2024 -c cover.jpg -m "示例注释"
 ```
 
 单文件组合示例：
 
 ```bash
-python music-scraper.py -f "My Song.flac" -t 7 -s "正式标题" -a "A" -a "B" -A "专辑艺术家" -l "专辑名" -y 2024 -c cover.jpg -m "歌曲说明"
+python music-scraper.py -f "示例歌曲.flac" -t 7 -s "示例标题" -a "艺术家一" -a "艺术家二" -A "示例专辑艺术家" -l "示例专辑" -y 2024 -c cover.jpg -m "示例注释"
 ```
 
 ---
@@ -425,10 +425,12 @@ python music-scraper.py -u -p -n
 
 ## 🏷 查看 tag
 
+对应参数：`-S / --show`
+
 ### 查看单个文件
 
 ```bash
-python music-scraper.py -f "01 Opening.flac" --show
+python music-scraper.py -f "01 第一首.flac" -S
 ```
 
 ### 批量查看指定目录下所有音频文件
@@ -440,12 +442,12 @@ python music-scraper.py -d ./music --show
 ### 批量查看当前目录下所有音频文件
 
 ```bash
-python music-scraper.py --show
+python music-scraper.py -S
 ```
 
 说明：
 
-- `--show` 模式下不要求文件名匹配规则
+- `-S / --show` 模式下不要求文件名匹配规则
 - 只要后缀是支持的音频文件即可：
 
   - `.mp3`
@@ -461,15 +463,15 @@ python music-scraper.py --show
 
 ```text
 ============================================================
-文件       : /path/to/01 Opening.flac
+文件       : /path/to/01 第一首.flac
 格式       : FLAC
 轨道号     : 1
-标题       : Opening
-艺术家     : 作者A; 作者B
-专辑艺术家 : 专辑艺术家
-专辑       : 专辑名
+标题       : 第一首
+艺术家     : 艺术家一; 艺术家二
+专辑艺术家 : 示例专辑艺术家
+专辑       : 示例专辑
 年份       : 2024
-简介/注释  : 这是一首开场曲
+简介/注释  : 示例注释
 封面       : 有 (1 张)
 ============================================================
 ```
@@ -478,10 +480,12 @@ python music-scraper.py --show
 
 ## 🖼 提取音乐封面
 
+对应参数：`-x / --extract-cover`
+
 ### 提取单个文件封面
 
 ```bash
-python music-scraper.py -f "01 Opening.flac" --extract-cover
+python music-scraper.py -f "01 第一首.flac" -x
 ```
 
 默认输出到音频同目录，命名为：
@@ -493,19 +497,19 @@ python music-scraper.py -f "01 Opening.flac" --extract-cover
 例如：
 
 ```text
-01 Opening.flac -> 01 Opening.cover.jpg
+01 第一首.flac -> 01 第一首.cover.jpg
 ```
 
 ### 提取单个文件封面到指定路径
 
 ```bash
-python music-scraper.py -f "01 Opening.flac" --extract-cover "./covers/opening.jpg"
+python music-scraper.py -f "01 第一首.flac" --extract-cover "./covers/first.jpg"
 ```
 
 ### 批量提取指定目录下所有音频文件封面
 
 ```bash
-python music-scraper.py -d ./music --extract-cover
+python music-scraper.py -d ./music -x
 ```
 
 ### 批量提取当前目录下所有音频文件封面
@@ -517,12 +521,12 @@ python music-scraper.py --extract-cover
 ### 批量提取到指定目录
 
 ```bash
-python music-scraper.py -d ./music --extract-cover ./covers
+python music-scraper.py -d ./music -x ./covers
 ```
 
 说明：
 
-- `--extract-cover` 模式下不要求文件名匹配规则
+- `-x / --extract-cover` 模式下不要求文件名匹配规则
 - 只要后缀是支持的音频文件即可：
 
   - `.mp3`
@@ -595,8 +599,8 @@ python music-scraper.py -v
 - 使用 `-p` 时，只有符合“数字 + 空格 + 标题”的文件名才能生成 `track/title`
 - 使用 `-N` 时，文件名去掉后缀后会完整写入 `title`
 - 两种文件名策略都不会阻止其他显式标签写入
-- `--show` 模式下完全不检查文件名格式
-- `--extract-cover` 模式下完全不检查文件名格式
+- `-S / --show` 模式下完全不检查文件名格式
+- `-x / --extract-cover` 模式下完全不检查文件名格式
 - 封面写入会覆盖原有封面
 - MP3 的注释会写入 `COMM`
 - 年份要求为 4 位数字
@@ -609,12 +613,12 @@ python music-scraper.py -v
 ## 💡 示例目录结构（推荐）
 
 ```text
-久石让/
-└── 龙族 OST/
+示例艺术家/
+└── 示例专辑/
     ├── cover.jpg
-    ├── 01 Opening.mp3
-    ├── 02 Theme.flac
-    └── 82 龍族の記憶.m4a
+    ├── 01 第一首.mp3
+    ├── 02 第二首.flac
+    └── 03 第三首.m4a
 ```
 
 运行：
@@ -625,22 +629,22 @@ python music-scraper.py -u -p
 
 效果：
 
-- `artist = 久石让`
-- `album_artist = 久石让`
-- `album = 龙族 OST`
+- `artist = 示例艺术家`
+- `album_artist = 示例艺术家`
+- `album = 示例专辑`
 - 自动写入封面
 - 自动写入 `track + title`
 
 如果再加上年份和简介：
 
 ```bash
-python music-scraper.py -u -p -y 2024 -m "龙族 OST 原声集"
+python music-scraper.py -u -p -y 2024 -m "示例注释"
 ```
 
 则还会写入：
 
 - `year = 2024`
-- `comment = 龙族 OST 原声集`
+- `comment = 示例注释`
 
 ---
 
@@ -649,49 +653,49 @@ python music-scraper.py -u -p -y 2024 -m "龙族 OST 原声集"
 ### 示例 1：文件名可解析
 
 ```bash
-python music-scraper.py -f "07 Ending.flac" -p
+python music-scraper.py -f "07 第七首.flac" -p
 ```
 
 会自动写入：
 
 - `track = 7`
-- `title = Ending`
+- `title = 第七首`
 
 ### 示例 2：文件名不可解析，手动补充
 
 ```bash
-python music-scraper.py -f "Ending Final Version.flac" -t 7 -s "Ending"
+python music-scraper.py -f "未编号歌曲.flac" -t 7 -s "第七首"
 ```
 
 会写入：
 
 - `track = 7`
-- `title = Ending`
+- `title = 第七首`
 
 ### 示例 3：文件名不可解析，只写其他标签
 
 ```bash
-python music-scraper.py -f "Ending Final Version.flac" -a "作者A" -A "专辑艺术家" -l "专辑名" -y 2024 -m "结尾曲"
+python music-scraper.py -f "未编号歌曲.flac" -a "示例艺术家" -A "示例专辑艺术家" -l "示例专辑" -y 2024 -m "示例注释"
 ```
 
 会写入：
 
-- `artist = 作者A`
-- `album_artist = 专辑艺术家`
-- `album = 专辑名`
+- `artist = 示例艺术家`
+- `album_artist = 示例专辑艺术家`
+- `album = 示例专辑`
 - `year = 2024`
-- `comment = 结尾曲`
+- `comment = 示例注释`
 
 ### 示例 4：直接查看当前目录所有音频标签
 
 ```bash
-python music-scraper.py --show
+python music-scraper.py -S
 ```
 
 ### 示例 5：直接提取当前目录所有音频封面
 
 ```bash
-python music-scraper.py --extract-cover
+python music-scraper.py -x
 ```
 
 ---
