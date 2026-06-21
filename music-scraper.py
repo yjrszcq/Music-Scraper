@@ -12,7 +12,7 @@ from mutagen.id3 import APIC, COMM, ID3, ID3NoHeaderError
 from mutagen.flac import FLAC, Picture
 from mutagen.mp4 import MP4, MP4Cover
 
-VERSION = "2.6.0"
+VERSION = "2.7.0"
 
 SUPPORTED_EXTS = [".mp3", ".flac", ".m4a"]
 
@@ -636,58 +636,49 @@ def process_folder(folder, artists, album_artist, album, year, comment, cover, d
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description="音乐标签刮削工具（MP3 / FLAC / M4A）",
-        formatter_class=argparse.RawTextHelpFormatter
+        formatter_class=argparse.RawTextHelpFormatter,
+        add_help=False,
     )
 
-    g = parser.add_mutually_exclusive_group()
-    g.add_argument("-d", "--dir", help="目录")
-    g.add_argument("-f", "--file", help="单文件")
+    path_group = parser.add_mutually_exclusive_group()
+    filename_group = parser.add_mutually_exclusive_group()
 
     parser.add_argument("-a", "--artist", action="append", help="作者 / 艺术家（可多个）")
     parser.add_argument("-A", "--album-artist", help="专辑艺术家")
-    parser.add_argument("-l", "--album", help="专辑")
-    parser.add_argument("-y", "--year", help="年份，例如 2024")
     parser.add_argument("-c", "--cover", help="封面路径")
+    path_group.add_argument("-d", "--dir", help="目录")
+    path_group.add_argument("-f", "--file", help="单文件")
+    parser.add_argument("-h", "--help", action="help", help="显示帮助信息并退出")
+    parser.add_argument("-l", "--album", help="专辑")
     parser.add_argument("-m", "--comment", help="简介 / 注释")
-
-    parser.add_argument("-t", "--track", help="手动指定音轨号（仅单文件模式）")
-    parser.add_argument("-s", "--title", help="手动指定标题（仅单文件模式）")
-
-    filename_group = parser.add_mutually_exclusive_group()
-    filename_group.add_argument(
-        "-p", "--parse-filename", action="store_true",
-        help="按“01 标题.mp3”格式从文件名提取 track/title"
-    )
+    parser.add_argument("-n", "--dry-run", action="store_true", help="仅预览，不写入标签")
     filename_group.add_argument(
         "-N", "--name-as-title", action="store_true",
         help="将不含后缀的完整文件名作为 title"
     )
-
+    filename_group.add_argument(
+        "-p", "--parse-filename", action="store_true",
+        help="按“01 标题.mp3”格式从文件名提取 track/title"
+    )
+    parser.add_argument("-s", "--title", help="手动指定标题（仅单文件模式）")
+    parser.add_argument(
+        "-S", "--show", action="store_true",
+        help="查看 tag：-f 为单文件，-d 为目录；都不带则默认当前目录"
+    )
+    parser.add_argument("-t", "--track", help="手动指定音轨号（仅单文件模式）")
     parser.add_argument(
         "-u", "--auto", action="store_true",
         help="自动识别 artist/album_artist/album/cover（与 -a/-A/-l/-c 互斥）"
-    )
-
-    parser.add_argument(
-        "--show", action="store_true",
-        help="查看 tag：-f 为单文件，-d 为目录；都不带则默认当前目录"
-    )
-
-    parser.add_argument(
-        "--extract-cover",
-        nargs="?",
-        const="",
-        help="提取封面：-f 时可指定输出文件；-d 时可指定输出目录；不指定则按默认命名输出"
-    )
-
-    parser.add_argument(
-        "-n", "--dry-run", action="store_true",
-        help="仅预览，不写入标签"
     )
     parser.add_argument(
         "-v", "--version", action="version",
         version=f"%(prog)s {VERSION}"
     )
+    parser.add_argument(
+        "-x", "--extract-cover", nargs="?", const="",
+        help="提取封面：-f 时可指定输出文件；-d 时可指定输出目录；不指定则按默认命名输出"
+    )
+    parser.add_argument("-y", "--year", help="年份，例如 2024")
 
     argv = sys.argv[1:] if argv is None else argv
     if not argv:
