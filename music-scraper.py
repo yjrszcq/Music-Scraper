@@ -672,10 +672,11 @@ def main(argv=None):
     )
     parser.add_argument(
         "-v", "--version", action="version",
-        version=f"%(prog)s {VERSION}"
+        version=f"%(prog)s {VERSION}",
+        help="显示版本信息并退出"
     )
     parser.add_argument(
-        "-x", "--extract-cover", nargs="?", const="",
+        "-x", "--extract-cover", nargs="?", const="", metavar="OUTPUT_PATH",
         help="提取封面：-f 时可指定输出文件；-d 时可指定输出目录；不指定则按默认命名输出"
     )
     parser.add_argument("-y", "--year", help="年份，例如 2024")
