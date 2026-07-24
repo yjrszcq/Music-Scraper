@@ -258,6 +258,41 @@ python music-scraper.py -f "01 第一首.flac" -a "示例艺术家" -A "示例�
 
 ---
 
+## 🗑 删除已有标签
+
+可写参数支持传入空字符串 `""`。空字符串表示删除对应标签；未提供参数时则保留原标签不变。
+
+例如，删除单个文件的标题、年份、注释和封面：
+
+```bash
+python music-scraper.py -f "示例歌曲.mp3" -t "" -y "" -C "" -c ""
+```
+
+删除目录中所有音频的艺术家、专辑艺术家和专辑标签：
+
+```bash
+python music-scraper.py -d ./music -a "" -A "" -b ""
+```
+
+支持空值删除的参数：
+
+- `-a / --artist`
+- `-A / --album-artist`
+- `-b / --album`
+- `-y / --year`
+- `-C / --comment`
+- `-c / --cover`
+- `-T / --track`（仅单文件模式）
+- `-t / --title`（仅单文件模式）
+
+建议先组合 `-D / --dry-run` 预览。待删除的字段会显示为 `<DELETE>`：
+
+```bash
+python music-scraper.py -f "示例歌曲.mp3" -t "" -c "" -D
+```
+
+---
+
 ## 🏷 标签字段对应关系
 
 | 信息 | MP3 | FLAC | M4A |
@@ -588,6 +623,7 @@ python music-scraper.py -v
 - `-s / --show` 模式下完全不检查文件名格式
 - `-x / --extract-cover` 模式下完全不检查文件名格式
 - 封面写入会覆盖原有封面
+- 可写参数传入 `""` 时会删除对应标签；未提供参数时保持原标签不变
 - MP3 的注释会写入 `COMM`
 - 年份要求为 4 位数字
 - 不同播放器对“注释 / 简介”“专辑艺术家”“年份”等字段的显示方式可能不同
