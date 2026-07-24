@@ -18,6 +18,7 @@
 - 从文件名中提取 `track` 和 `title`
 - 将完整文件名作为 `title`
 - 提取音乐内嵌封面
+- 按名称或缩写删除指定标签
 - 一次清空全部内嵌标签
 
 ---
@@ -294,6 +295,53 @@ python music-scraper.py -f "示例歌曲.mp3" -t "" -c "" -D
 
 ---
 
+## 🗑 按名称删除指定标签
+
+使用 `-U / --unset` 可以一次删除一个或多个指定标签：
+
+```bash
+python music-scraper.py -f "示例歌曲.mp3" --unset artist album cover
+python music-scraper.py -d ./music -U track title
+```
+
+也可以使用带 `@` 前缀的紧凑缩写，字符顺序不限：
+
+```bash
+python music-scraper.py -f "示例歌曲.mp3" --unset @aAc
+python music-scraper.py -d ./music -U @Tt
+```
+
+不带 `@` 前缀的参数只按完整标签名称解析，因此 `--unset aAc` 会报错。完整名称和缩写可以混合使用：
+
+```bash
+python music-scraper.py -f "示例歌曲.mp3" --unset artist @Ac
+```
+
+缩写映射：
+
+| 缩写 | 标签 |
+|---|---|
+| `a` | `artist` |
+| `A` | `album_artist` |
+| `b` | `album` |
+| `y` | `year` |
+| `C` | `comment` |
+| `c` | `cover` |
+| `T` | `track` |
+| `t` | `title` |
+
+完整名称还支持 `album-artist`、`date` 和 `tracknumber` 别名。目录模式下也可以批量删除 `track/title`。
+
+建议先使用 `-D` 预览，待删除字段会显示为 `<DELETE>`：
+
+```bash
+python music-scraper.py -d ./music --unset @aAbc -D
+```
+
+`--unset / -U` 不能与具体标签参数、`--auto`、`--clear`、`--show`、`--extract-cover` 或文件名策略同时使用。
+
+---
+
 ## 🧹 清空全部标签
 
 使用 `-e / --clear` 可一次清空音频中的全部内嵌标签：
@@ -311,7 +359,7 @@ python music-scraper.py -d ./music -e
 python music-scraper.py -d ./music --clear -D
 ```
 
-`--clear / -e` 不能与具体标签参数、`--auto`、`--show`、`--extract-cover` 或文件名策略同时使用。
+`--clear / -e` 不能与具体标签参数、`--unset`、`--auto`、`--show`、`--extract-cover` 或文件名策略同时使用。
 
 ---
 
@@ -617,7 +665,11 @@ python music-scraper.py -d ./music -x ./covers
 
 ### `--clear / -e`
 
-清空模式不能与其他标签、自动识别、查看标签、提取封面或文件名策略参数同时使用。
+清空模式不能与指定标签删除、其他标签、自动识别、查看标签、提取封面或文件名策略参数同时使用。
+
+### `--unset / -U`
+
+指定标签删除模式不能与具体标签参数、自动识别、清空、查看标签、提取封面或文件名策略参数同时使用。
 
 ---
 
@@ -650,6 +702,7 @@ python music-scraper.py -v
 - `-x / --extract-cover` 模式下完全不检查文件名格式
 - 封面写入会覆盖原有封面
 - 可写参数传入 `""` 时会删除对应标签；未提供参数时保持原标签不变
+- `-U / --unset` 可按完整名称或紧凑缩写删除指定标签
 - `-e / --clear` 会清空音频中的全部内嵌标签，建议先配合 `-D` 预览
 - MP3 的注释会写入 `COMM`
 - 年份要求为 4 位数字
