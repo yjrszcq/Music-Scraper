@@ -18,6 +18,7 @@
 - 从文件名中提取 `track` 和 `title`
 - 将完整文件名作为 `title`
 - 提取音乐内嵌封面
+- 一次清空全部内嵌标签
 
 ---
 
@@ -290,6 +291,27 @@ python music-scraper.py -d ./music -a "" -A "" -b ""
 ```bash
 python music-scraper.py -f "示例歌曲.mp3" -t "" -c "" -D
 ```
+
+---
+
+## 🧹 清空全部标签
+
+使用 `-e / --clear` 可一次清空音频中的全部内嵌标签：
+
+```bash
+python music-scraper.py -f "示例歌曲.mp3" --clear
+python music-scraper.py -d ./music -e
+```
+
+清空范围包括音轨号、标题、艺术家、专辑、年份、注释、封面，以及流派、作曲者等其他现有标签。目录模式会递归处理全部支持的音频文件。
+
+建议先使用 dry-run 预览：
+
+```bash
+python music-scraper.py -d ./music --clear -D
+```
+
+`--clear / -e` 不能与具体标签参数、`--auto`、`--show`、`--extract-cover` 或文件名策略同时使用。
 
 ---
 
@@ -593,6 +615,10 @@ python music-scraper.py -d ./music -x ./covers
 - **仅能配合 `-f / --file` 使用**
 - 不能用于目录批量模式
 
+### `--clear / -e`
+
+清空模式不能与其他标签、自动识别、查看标签、提取封面或文件名策略参数同时使用。
+
 ---
 
 ## 🆘 帮助
@@ -624,6 +650,7 @@ python music-scraper.py -v
 - `-x / --extract-cover` 模式下完全不检查文件名格式
 - 封面写入会覆盖原有封面
 - 可写参数传入 `""` 时会删除对应标签；未提供参数时保持原标签不变
+- `-e / --clear` 会清空音频中的全部内嵌标签，建议先配合 `-D` 预览
 - MP3 的注释会写入 `COMM`
 - 年份要求为 4 位数字
 - 不同播放器对“注释 / 简介”“专辑艺术家”“年份”等字段的显示方式可能不同
