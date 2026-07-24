@@ -12,7 +12,7 @@ from mutagen.id3 import APIC, COMM, ID3, ID3NoHeaderError
 from mutagen.flac import FLAC, Picture
 from mutagen.mp4 import MP4, MP4Cover
 
-VERSION = "3.2.0"
+VERSION = "3.3.0"
 
 SUPPORTED_EXTS = [".mp3", ".flac", ".m4a"]
 
@@ -23,6 +23,31 @@ AUTO_COVER_NAMES = [
     "folder.jpg", "folder.jpeg", "folder.png", "folder.webp",
     "front.jpg", "front.jpeg", "front.png", "front.webp",
 ]
+
+UNSET_TAG_NAMES = {
+    "artist": "artist",
+    "album_artist": "album_artist",
+    "album-artist": "album_artist",
+    "album": "album",
+    "year": "year",
+    "date": "year",
+    "comment": "comment",
+    "cover": "cover",
+    "track": "track",
+    "tracknumber": "track",
+    "title": "title",
+}
+
+UNSET_TAG_SHORTS = {
+    "a": "artist",
+    "A": "album_artist",
+    "b": "album",
+    "y": "year",
+    "C": "comment",
+    "c": "cover",
+    "T": "track",
+    "t": "title",
+}
 
 
 # ========================
@@ -115,6 +140,25 @@ def normalize_artists(artists):
     if artists is None:
         return None
     return [artist for artist in artists if artist]
+
+
+def parse_unset_tags(values):
+    selected = set()
+
+    for raw_value in values:
+        value = raw_value.strip()
+        if value.startswith("@"):
+            shorthand = value[1:]
+            if shorthand and all(char in UNSET_TAG_SHORTS for char in shorthand):
+                selected.update(UNSET_TAG_SHORTS[char] for char in shorthand)
+                continue
+            raise ValueError(f"未知的 unset 缩写: {raw_value}")
+        if value in UNSET_TAG_NAMES:
+            selected.add(UNSET_TAG_NAMES[value])
+            continue
+        raise ValueError(f"未知的 unset 标签: {raw_value}；紧凑缩写必须以 @ 开头")
+
+    return selected
 
 
 def is_supported_audio(path: Path):
@@ -677,7 +721,19 @@ def process_file(
     write_tags(path, track, title, artists, album_artist, album, year, comment, cover, dry_run)
 
 
-def process_folder(folder, artists, album_artist, album, year, comment, cover, dry_run, filename_mode):
+def process_folder(
+    folder,
+    artists,
+    album_artist,
+    album,
+    year,
+    comment,
+    cover,
+    dry_run,
+    filename_mode,
+    manual_track=None,
+    manual_title=None,
+):
     files = list(folder.rglob("*.*"))
 
     for f in files:
@@ -694,6 +750,8 @@ def process_folder(folder, artists, album_artist, album, year, comment, cover, d
             cover=cover,
             dry_run=dry_run,
             filename_mode=filename_mode,
+            manual_track=manual_track,
+            manual_title=manual_title,
         )
 
 
@@ -740,6 +798,10 @@ def main(argv=None):
         help="自动识别 artist/album_artist/album/cover（与 -a/-A/-b/-c 互斥）"
     )
     parser.add_argument(
+        "-U", "--unset", nargs="+", metavar="TAG",
+        help="删除指定标签，例如 --unset artist album cover 或 --unset @aAc"
+    )
+    parser.add_argument(
         "-v", "--version", action="version",
         version=f"%(prog)s {VERSION}",
         help="显示版本信息并退出"
@@ -769,6 +831,7 @@ def main(argv=None):
         args.title is not None,
         args.track is not None,
         args.auto,
+        args.unset is not None,
         args.extract_cover is not None,
         args.year is not None,
     ]):
@@ -790,6 +853,78 @@ def main(argv=None):
         if not folder.is_dir():
             parser.error(f"不是目录: {folder}")
         clear_folder_tags(folder, dry_run=args.dry_run)
+        return
+
+    if args.unset is not None and any([
+        args.artist is not None,
+        args.album_artist is not None,
+        args.album is not None,
+        args.cover is not None,
+        args.comment is not None,
+        args.name_as_title,
+        args.parse_filename,
+        args.show,
+        args.title is not None,
+        args.track is not None,
+        args.auto,
+        args.extract_cover is not None,
+        args.year is not None,
+    ]):
+        parser.error("--unset/-U 不能与其他标签、自动、查看或封面提取参数同时使用")
+
+    if args.unset is not None:
+        try:
+            unset_tags = parse_unset_tags(args.unset)
+        except ValueError as e:
+            parser.error(str(e))
+
+        artists = [] if "artist" in unset_tags else None
+        album_artist = "" if "album_artist" in unset_tags else None
+        album = "" if "album" in unset_tags else None
+        year = "" if "year" in unset_tags else None
+        comment = "" if "comment" in unset_tags else None
+        cover = "" if "cover" in unset_tags else None
+        manual_track = "" if "track" in unset_tags else None
+        manual_title = "" if "title" in unset_tags else None
+
+        if args.file:
+            path = Path(args.file).resolve()
+            ensure_file_exists(path, parser, "音乐文件")
+            if not path.is_file():
+                parser.error(f"不是文件: {path}")
+            if not is_supported_audio(path):
+                parser.error(f"不支持格式: {path}")
+            process_file(
+                path=path,
+                artists=artists,
+                album_artist=album_artist,
+                album=album,
+                year=year,
+                comment=comment,
+                cover=cover,
+                dry_run=args.dry_run,
+                manual_track=manual_track,
+                manual_title=manual_title,
+            )
+            return
+
+        folder = Path(args.dir or ".").resolve()
+        ensure_file_exists(folder, parser, "目录")
+        if not folder.is_dir():
+            parser.error(f"不是目录: {folder}")
+        process_folder(
+            folder=folder,
+            artists=artists,
+            album_artist=album_artist,
+            album=album,
+            year=year,
+            comment=comment,
+            cover=cover,
+            dry_run=args.dry_run,
+            filename_mode=None,
+            manual_track=manual_track,
+            manual_title=manual_title,
+        )
         return
 
     if args.parse_filename:
