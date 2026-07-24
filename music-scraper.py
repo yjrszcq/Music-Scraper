@@ -12,7 +12,7 @@ from mutagen.id3 import APIC, COMM, ID3, ID3NoHeaderError
 from mutagen.flac import FLAC, Picture
 from mutagen.mp4 import MP4, MP4Cover
 
-VERSION = "3.0.0"
+VERSION = "3.1.0"
 
 SUPPORTED_EXTS = [".mp3", ".flac", ".m4a"]
 
@@ -94,7 +94,7 @@ def normalize_track(track):
         return None
     s = str(track).strip()
     if not s:
-        return None
+        return ""
     if not s.isdigit():
         raise ValueError(f"track 必须是纯数字，当前为: {track}")
     return str(int(s))
@@ -105,14 +105,36 @@ def normalize_year(year):
         return None
     s = str(year).strip()
     if not s:
-        return None
+        return ""
     if not re.fullmatch(r"\d{4}", s):
         raise ValueError(f"年份必须是 4 位数字，当前为: {year}")
     return s
 
 
+def normalize_artists(artists):
+    if artists is None:
+        return None
+    return [artist for artist in artists if artist]
+
+
 def is_supported_audio(path: Path):
     return path.suffix.lower() in SUPPORTED_EXTS
+
+
+def update_tag(tags, key, value, write_value=None):
+    if value is None:
+        return
+    if value == "" or value == []:
+        if key in tags:
+            del tags[key]
+        return
+    tags[key] = value if write_value is None else write_value
+
+
+def format_dry_run_value(value):
+    if value == "" or value == []:
+        return "<DELETE>"
+    return value
 
 
 def iter_audio_files(folder: Path):
@@ -260,19 +282,12 @@ def write_mp3(path, track, title, artists, album_artist, album, year, comment, c
             audio.save(path)
             audio = EasyID3(path)
 
-        if track is not None:
-            audio["tracknumber"] = [track]
-        if title is not None:
-            audio["title"] = [title]
-
-        if artists:
-            audio["artist"] = artists
-        if album_artist:
-            audio["albumartist"] = [album_artist]
-        if album:
-            audio["album"] = [album]
-        if year:
-            audio["date"] = [year]
+        update_tag(audio, "tracknumber", track, [track])
+        update_tag(audio, "title", title, [title])
+        update_tag(audio, "artist", artists)
+        update_tag(audio, "albumartist", album_artist, [album_artist])
+        update_tag(audio, "album", album, [album])
+        update_tag(audio, "date", year, [year])
 
         audio.save()
 
@@ -280,27 +295,29 @@ def write_mp3(path, track, title, artists, album_artist, album, year, comment, c
 
         if comment is not None:
             tags.delall("COMM")
-            tags.add(COMM(
-                encoding=3,
-                lang="eng",
-                desc="Comment",
-                text=comment
-            ))
+            if comment:
+                tags.add(COMM(
+                    encoding=3,
+                    lang="eng",
+                    desc="Comment",
+                    text=comment
+                ))
 
-        if cover:
-            with cover.open("rb") as f:
-                data = f.read()
-
-            mime = detect_mime_type(cover)
-
+        if cover is not None:
             tags.delall("APIC")
-            tags.add(APIC(
-                encoding=3,
-                mime=mime,
-                type=3,
-                desc="Cover",
-                data=data
-            ))
+            if cover:
+                with cover.open("rb") as f:
+                    data = f.read()
+
+                mime = detect_mime_type(cover)
+
+                tags.add(APIC(
+                    encoding=3,
+                    mime=mime,
+                    type=3,
+                    desc="Cover",
+                    data=data
+                ))
 
         tags.save(path)
 
@@ -312,32 +329,25 @@ def write_flac(path, track, title, artists, album_artist, album, year, comment, 
     try:
         audio = FLAC(path)
 
-        if track is not None:
-            audio["tracknumber"] = track
-        if title is not None:
-            audio["title"] = title
+        update_tag(audio, "tracknumber", track)
+        update_tag(audio, "title", title)
+        update_tag(audio, "artist", artists)
+        update_tag(audio, "albumartist", album_artist)
+        update_tag(audio, "album", album)
+        update_tag(audio, "date", year)
+        update_tag(audio, "comment", comment)
 
-        if artists:
-            audio["artist"] = artists
-        if album_artist:
-            audio["albumartist"] = album_artist
-        if album:
-            audio["album"] = album
-        if year:
-            audio["date"] = year
-        if comment is not None:
-            audio["comment"] = comment
-
-        if cover:
+        if cover is not None:
             audio.clear_pictures()
-            pic = Picture()
-            pic.type = 3
-            pic.mime = detect_mime_type(cover)
+            if cover:
+                pic = Picture()
+                pic.type = 3
+                pic.mime = detect_mime_type(cover)
 
-            with cover.open("rb") as f:
-                pic.data = f.read()
+                with cover.open("rb") as f:
+                    pic.data = f.read()
 
-            audio.add_picture(pic)
+                audio.add_picture(pic)
 
         audio.save()
 
@@ -349,31 +359,26 @@ def write_m4a(path, track, title, artists, album_artist, album, year, comment, c
     try:
         audio = MP4(path)
 
-        if track is not None:
-            audio["trkn"] = [(int(track), 0)]
-        if title is not None:
-            audio["©nam"] = [title]
+        update_tag(audio, "trkn", track, [(int(track), 0)] if track else None)
+        update_tag(audio, "©nam", title, [title])
+        update_tag(audio, "©ART", artists)
+        update_tag(audio, "aART", album_artist, [album_artist])
+        update_tag(audio, "©alb", album, [album])
+        update_tag(audio, "©day", year, [year])
+        update_tag(audio, "©cmt", comment, [comment])
 
-        if artists:
-            audio["©ART"] = artists
-        if album_artist:
-            audio["aART"] = [album_artist]
-        if album:
-            audio["©alb"] = [album]
-        if year:
-            audio["©day"] = [year]
-        if comment is not None:
-            audio["©cmt"] = [comment]
+        if cover is not None:
+            if not cover:
+                update_tag(audio, "covr", "")
+            else:
+                with cover.open("rb") as f:
+                    data = f.read()
 
-        if cover:
-            with cover.open("rb") as f:
-                data = f.read()
+                fmt = MP4Cover.FORMAT_JPEG
+                if cover.suffix.lower() == ".png":
+                    fmt = MP4Cover.FORMAT_PNG
 
-            fmt = MP4Cover.FORMAT_JPEG
-            if cover.suffix.lower() == ".png":
-                fmt = MP4Cover.FORMAT_PNG
-
-            audio["covr"] = [MP4Cover(data, imageformat=fmt)]
+                audio["covr"] = [MP4Cover(data, imageformat=fmt)]
 
         audio.save()
 
@@ -540,14 +545,14 @@ def write_tags(path, track, title, artists, album_artist, album, year, comment, 
 
     if dry_run:
         print(f"[DRY RUN] {path}")
-        print(f"  track        = {track}")
-        print(f"  title        = {title}")
-        print(f"  artist       = {artists}")
-        print(f"  album_artist = {album_artist}")
-        print(f"  album        = {album}")
-        print(f"  year         = {year}")
-        print(f"  comment      = {comment}")
-        print(f"  cover        = {cover}")
+        print(f"  track        = {format_dry_run_value(track)}")
+        print(f"  title        = {format_dry_run_value(title)}")
+        print(f"  artist       = {format_dry_run_value(artists)}")
+        print(f"  album_artist = {format_dry_run_value(album_artist)}")
+        print(f"  album        = {format_dry_run_value(album)}")
+        print(f"  year         = {format_dry_run_value(year)}")
+        print(f"  comment      = {format_dry_run_value(comment)}")
+        print(f"  cover        = {format_dry_run_value(cover)}")
         return
 
     ext = path.suffix.lower()
@@ -596,12 +601,12 @@ def process_file(
     if not any([
         track is not None,
         title is not None,
-        artists,
-        album_artist,
-        album,
-        year,
+        artists is not None,
+        album_artist is not None,
+        album is not None,
+        year is not None,
         comment is not None,
-        cover
+        cover is not None
     ]):
         print(f"[SKIP] {path} -> 没有可写入的标签")
         return
@@ -643,11 +648,11 @@ def main(argv=None):
     path_group = parser.add_mutually_exclusive_group()
     filename_group = parser.add_mutually_exclusive_group()
 
-    parser.add_argument("-a", "--artist", action="append", help="作者 / 艺术家（可多个）")
-    parser.add_argument("-A", "--album-artist", help="专辑艺术家")
-    parser.add_argument("-b", "--album", help="专辑")
-    parser.add_argument("-c", "--cover", help="封面路径")
-    parser.add_argument("-C", "--comment", help="简介 / 注释")
+    parser.add_argument("-a", "--artist", action="append", help="作者 / 艺术家（可多个，空值删除）")
+    parser.add_argument("-A", "--album-artist", help="专辑艺术家（空值删除）")
+    parser.add_argument("-b", "--album", help="专辑（空值删除）")
+    parser.add_argument("-c", "--cover", help="封面路径（空值删除）")
+    parser.add_argument("-C", "--comment", help="简介 / 注释（空值删除）")
     path_group.add_argument("-d", "--dir", help="目录")
     parser.add_argument("-D", "--dry-run", action="store_true", help="仅预览，不写入标签")
     path_group.add_argument("-f", "--file", help="单文件")
@@ -664,8 +669,8 @@ def main(argv=None):
         "-s", "--show", action="store_true",
         help="查看 tag：-f 为单文件，-d 为目录；都不带则默认当前目录"
     )
-    parser.add_argument("-t", "--title", help="手动指定标题（仅单文件模式）")
-    parser.add_argument("-T", "--track", help="手动指定音轨号（仅单文件模式）")
+    parser.add_argument("-t", "--title", help="手动指定标题（仅单文件模式，空值删除）")
+    parser.add_argument("-T", "--track", help="手动指定音轨号（仅单文件模式，空值删除）")
     parser.add_argument(
         "-u", "--auto", action="store_true",
         help="自动识别 artist/album_artist/album/cover（与 -a/-A/-b/-c 互斥）"
@@ -679,7 +684,7 @@ def main(argv=None):
         "-x", "--extract-cover", nargs="?", const="", metavar="OUTPUT_PATH",
         help="提取内嵌封面（可选输出路径）"
     )
-    parser.add_argument("-y", "--year", help="年份，例如 2024")
+    parser.add_argument("-y", "--year", help="年份，例如 2024（空值删除）")
 
     argv = sys.argv[1:] if argv is None else argv
     if not argv:
@@ -738,10 +743,15 @@ def main(argv=None):
         parser.error("--track/--title 仅能配合 -f/--file 使用")
 
     # auto 互斥
-    if args.auto and (args.artist or args.album_artist or args.album or args.cover):
+    if args.auto and any([
+        args.artist is not None,
+        args.album_artist is not None,
+        args.album is not None,
+        args.cover is not None,
+    ]):
         parser.error("-u 与 -a/-A/-b/-c 互斥")
 
-    cover = Path(args.cover).resolve() if args.cover else None
+    cover = Path(args.cover).resolve() if args.cover else args.cover
     if cover:
         ensure_file_exists(cover, parser, "封面文件")
 
@@ -758,7 +768,7 @@ def main(argv=None):
         if args.auto:
             artists, album_artist, album, cover = infer_auto_tags(path.parent)
         else:
-            artists = args.artist
+            artists = normalize_artists(args.artist)
             album_artist = args.album_artist
             album = args.album
 
@@ -784,7 +794,7 @@ def main(argv=None):
     if args.auto:
         artists, album_artist, album, cover = infer_auto_tags(folder)
     else:
-        artists = args.artist
+        artists = normalize_artists(args.artist)
         album_artist = args.album_artist
         album = args.album
 
