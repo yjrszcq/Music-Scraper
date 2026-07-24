@@ -12,7 +12,7 @@ from mutagen.id3 import APIC, COMM, ID3, ID3NoHeaderError
 from mutagen.flac import FLAC, Picture
 from mutagen.mp4 import MP4, MP4Cover
 
-VERSION = "3.1.0"
+VERSION = "3.2.0"
 
 SUPPORTED_EXTS = [".mp3", ".flac", ".m4a"]
 
@@ -267,6 +267,69 @@ def extract_cover_from_folder(folder: Path, output_arg: str | None = None):
 
     for f in files:
         extract_cover_from_file(f, output_arg=output_arg, single_file=False)
+
+
+# ========================
+# 清空全部标签
+# ========================
+
+def clear_mp3_tags(path):
+    try:
+        try:
+            tags = ID3(path)
+        except ID3NoHeaderError:
+            print(f"[OK][MP3] {path} -> 标签已为空")
+            return
+        tags.delete(path)
+        print(f"[OK][MP3] {path} -> 已清空全部标签")
+    except Exception as e:
+        print(f"[ERROR][MP3] {path} -> {e}")
+
+
+def clear_flac_tags(path):
+    try:
+        audio = FLAC(path)
+        audio.clear_pictures()
+        audio.save()
+        audio.delete()
+        print(f"[OK][FLAC] {path} -> 已清空全部标签")
+    except Exception as e:
+        print(f"[ERROR][FLAC] {path} -> {e}")
+
+
+def clear_m4a_tags(path):
+    try:
+        audio = MP4(path)
+        audio.delete()
+        print(f"[OK][M4A] {path} -> 已清空全部标签")
+    except Exception as e:
+        print(f"[ERROR][M4A] {path} -> {e}")
+
+
+def clear_tags(path, dry_run=False):
+    if dry_run:
+        print(f"[DRY RUN][CLEAR] {path}")
+        return
+
+    ext = path.suffix.lower()
+    if ext == ".mp3":
+        clear_mp3_tags(path)
+    elif ext == ".flac":
+        clear_flac_tags(path)
+    elif ext == ".m4a":
+        clear_m4a_tags(path)
+    else:
+        print(f"[SKIP] 不支持格式: {path}")
+
+
+def clear_folder_tags(folder, dry_run=False):
+    files = list(iter_audio_files(folder))
+    if not files:
+        print(f"[INFO] 目录下未找到支持的音频文件: {folder}")
+        return
+
+    for path in files:
+        clear_tags(path, dry_run=dry_run)
 
 
 # ========================
@@ -653,6 +716,7 @@ def main(argv=None):
     parser.add_argument("-b", "--album", help="专辑（空值删除）")
     parser.add_argument("-c", "--cover", help="封面路径（空值删除）")
     parser.add_argument("-C", "--comment", help="简介 / 注释（空值删除）")
+    parser.add_argument("-e", "--clear", action="store_true", help="清空全部内嵌标签")
     path_group.add_argument("-d", "--dir", help="目录")
     parser.add_argument("-D", "--dry-run", action="store_true", help="仅预览，不写入标签")
     path_group.add_argument("-f", "--file", help="单文件")
@@ -692,6 +756,41 @@ def main(argv=None):
         return
 
     args = parser.parse_args(argv)
+
+    if args.clear and any([
+        args.artist is not None,
+        args.album_artist is not None,
+        args.album is not None,
+        args.cover is not None,
+        args.comment is not None,
+        args.name_as_title,
+        args.parse_filename,
+        args.show,
+        args.title is not None,
+        args.track is not None,
+        args.auto,
+        args.extract_cover is not None,
+        args.year is not None,
+    ]):
+        parser.error("--clear/-e 不能与其他标签、自动、查看或封面提取参数同时使用")
+
+    if args.clear:
+        if args.file:
+            path = Path(args.file).resolve()
+            ensure_file_exists(path, parser, "音乐文件")
+            if not path.is_file():
+                parser.error(f"不是文件: {path}")
+            if not is_supported_audio(path):
+                parser.error(f"不支持格式: {path}")
+            clear_tags(path, dry_run=args.dry_run)
+            return
+
+        folder = Path(args.dir or ".").resolve()
+        ensure_file_exists(folder, parser, "目录")
+        if not folder.is_dir():
+            parser.error(f"不是目录: {folder}")
+        clear_folder_tags(folder, dry_run=args.dry_run)
+        return
 
     if args.parse_filename:
         filename_mode = "parse"
