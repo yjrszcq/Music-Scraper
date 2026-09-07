@@ -64,6 +64,50 @@ pip install mutagen
 python music-scraper.py -h
 ```
 
+### 3. 使用 `ms.sh` 快捷启动
+
+仓库中的 `ms.sh` 用于在指定的 Conda 环境中运行 `music-scraper.py`。脚本会检查 Conda 是否可用，在需要时自动激活环境，并将收到的所有命令行参数原样传递给 Python 脚本。
+
+使用前先编辑 `ms.sh` 中的以下配置：
+
+```bash
+CONDA_ENV="music-scraper"
+PY_SCRIPT="/path/to/music-scraper.py"
+```
+
+- `CONDA_ENV`：已经安装 `mutagen` 的 Conda 环境名称。
+- `PY_SCRIPT`：`music-scraper.py` 的实际路径，建议填写绝对路径。
+
+为脚本添加执行权限后直接运行：
+
+```bash
+chmod +x ms.sh
+./ms.sh -f "01 示例歌曲.mp3" -s
+```
+
+为了在任意目录中使用 `ms` 命令，可以将脚本的绝对路径配置为 alias。例如，使用 Zsh 时将下面一行添加到 `~/.zshrc`：
+
+```bash
+alias ms='/path/to/ms.sh'
+```
+
+将 `/path/to/ms.sh` 替换为本机 `ms.sh` 的实际路径，然后重新加载配置：
+
+```bash
+source ~/.zshrc
+```
+
+之后即可直接使用：
+
+```bash
+ms -h
+ms -d ./music -p
+```
+
+使用 Bash 时，可以将相同的 alias 添加到 `~/.bashrc`，再运行 `source ~/.bashrc`。通过 alias 直接执行前，仍需确保 `ms.sh` 已具有执行权限。
+
+如果系统找不到 `conda`、Conda 环境激活失败，或者 `PY_SCRIPT` 配置不正确，脚本将无法启动。
+
 ---
 
 ## 📦 支持格式
