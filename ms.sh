@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-CONDA_ENV="myenv"
-PY_SCRIPT="/path/to/script.py"
+CONDA_ENV="music-scraper"
+PY_SCRIPT="/path/to/music-scraper.py"
 
 if ! command -v conda >/dev/null 2>&1; then
     echo "Error: conda command not found."
